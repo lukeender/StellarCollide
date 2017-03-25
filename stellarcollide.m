@@ -93,8 +93,8 @@ for i = 1:nTotBodies
     end
     for j = 1:nTotBodies %this loop calculates the initial accelaration due to gravity for all planets
         if i ~= j
-            a_Gx(i) = a_Gx(i) - G*(m_comb(j)/(r(i,j)^2))*rx(i,j);
-            a_Gy(i) = a_Gy(i) - G*(m_comb(j)/(r(i,j)^2))*ry(i,j);
+            a_Gx(i) = G*(m_comb(j)/(r(i,j)^2))*rx(i,j);
+            a_Gy(i) = G*(m_comb(j)/(r(i,j)^2))*ry(i,j);
         end
     end
 end
@@ -104,7 +104,7 @@ for s = 1:nIter %this is the main loop and propagates the system in time after t
         x_comb(i) = x_comb(i) + dt*vx(i) + (dt^2)*a_Gx(i)/2;
         y_comb(i) = y_comb(i) + dt*vy(i) + (dt^2)*a_Gy(i)/2;
     end
-    for i = 1:nTotBodies
+    for i = 1:nTotBodies %recalculate new relative distances between gravitational bodies
         for j = i+1:nTotBodies
             r(i,j) = sqrt((x_comb(j)-x_comb(i))^2 + (y_comb(j)-y_comb(i))^2);
             r(j,i) = r(i,j);
@@ -116,38 +116,37 @@ for s = 1:nIter %this is the main loop and propagates the system in time after t
     end
     
     if r(nTotBodies,nPlanets1+1) < 5000000 %this if statement models the collision of the two stars
-        m_new = m_comb(nTotBodies) + m_comb(nPlanets1+1); %
         Thermal_energy_system = m_comb(nTotBodies)*(vx(nTotBodies)^2 + vy(nTotBodies)^2)/2 + m_comb(nPlanets1+1)*(vx(nPlanets1+1)^2 + vy(nPlanets1+1)^2)/2;
         %         vx(nTotBodies+1) = m_comb(nTotBodies)*vx(nTotBodies)/m_new + m_comb(nPlanets1+1)*vx(nPlanets1+1)/m_new;
         %         vy(nTotBodies+1) = m_comb(nTotBodies)*vy(nTotBodies)/m_new + m_comb(nPlanets1+1)*vy(nPlanets1+1)/m_new;
         vx(nTotBodies) = 0;
         vy(nTotBodies) = 0;
         k = 2;
-        m_comb(nTotBodies) = m_new; m_comb(nPlanets1+1) = 0; vx(nPlanets1+1) = 0; vy(nPlanets1+1) = 0; a_Gx(nPlanets1+1) = 0; a_Gy(nPlanets1+1) = 0; x_comb(nPlanets1+1) = 6e15;
+        m_comb(nTotBodies) = m_comb(nTotBodies) + m_comb(nPlanets1+1); m_comb(nPlanets1+1) = 0; vx(nPlanets1+1) = 0; vy(nPlanets1+1) = 0; a_Gx(nPlanets1+1) = 0; a_Gy(nPlanets1+1) = 0; x_comb(nPlanets1+1) = 6e15;
     end
     for j = 1:nTotBodies
-        a_Gx_t(j) = a_Gx(j);
+        a_Gx_t(j) = a_Gx(j); %save accelaration from previous iteration 
         a_Gy_t(j) = a_Gy(j);
     end
-    a_Gx = zeros(1,nTotBodies);
+    a_Gx = zeros(1,nTotBodies); %get rid of accelaration data from the previous timestep
     a_Gy = zeros(1,nTotBodies);
     for i = 1:nTotBodies
         for j = 1:nTotBodies
             if i ~= j
-                a_Gx(i) = a_Gx(i) - G*(m_comb(j)/(r(i,j)^2))*rx(i,j);
-                a_Gy(i) = a_Gy(i) - G*(m_comb(j)/(r(i,j)^2))*ry(i,j);
+                a_Gx(i) = a_Gx(i) - G*(m_comb(j)/(r(i,j)^2))*rx(i,j); %%calculate new accelaration according to ay_k+1 = ay_k - GmM/((r^2)*ry and 
+                a_Gy(i) = a_Gy(i) - G*(m_comb(j)/(r(i,j)^2))*ry(i,j); %corresponding equations for x
             end
         end
     end
     for i = 1:nTotBodies
         if k ~= 0
-            vx(i) = vx(i) + dt*a_Gx(i);
+            vx(i) = vx(i) + dt*a_Gx(i); %integrate new accelaration to get new velocity
             vy(i) = vy(i) + dt*a_Gy(i);
             vx(nTotBodies) = 0;
             vy(nTotBodies) = 0;
             k = k-1;
         else
-            vx(i) = vx(i) + dt*(a_Gx(i)+a_Gx_t(i))/2;
+            vx(i) = vx(i) + dt*(a_Gx(i)+a_Gx_t(i))/2; %verlet algorithm for velocity, using the average between k and k+1 accelaration
             vy(i) = vy(i) + dt*(a_Gy(i)+a_Gy_t(i))/2;
             if vx(nTotBodies+1) ~= 0
                 vx(nTotBodies) = vx(nTotBodies+1);
@@ -164,7 +163,7 @@ for s = 1:nIter %this is the main loop and propagates the system in time after t
     plot(x_comb(nPlanets1+1),y_comb(nPlanets1+1),'r+')
     plot(x_comb(nPlanets1+2:nTotBodies-1),y_comb(nPlanets1+2:nTotBodies-1),'o')
     plot(x_comb(nTotBodies),y_comb(nTotBodies),'or')
-    axis([-cm-max(rs)*2 (R-cm)+max(rs)*2 -max(rs)*4.5 max(rs)*3]) %
-    movie(s) = getframe;
+    axis([-cm-max(rs)*2 (R-cm)+max(rs)*2 -max(rs)*4.5 max(rs)*3]) %adjusts the axis of the plot dynamically so everything is always visible
+    movie(s) = getframe; %This causes the plot to be displayed every iteration instead of just at the end
     
 end
